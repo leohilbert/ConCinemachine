@@ -394,6 +394,62 @@ namespace Cinemachine
             return nontrivialResult;
         }
 
+        public bool GetStrongestImpulseAt(
+            Vector3 listenerLocation, bool distance2D, int channelMask,
+            out Vector3 pos, out Quaternion rot
+        )
+        {
+            pos = Vector3.zero;
+            rot = Quaternion.identity;
+
+            if (m_ActiveEvents == null) return false;
+
+            float strongestPosMagnitude = 0f;
+
+            Vector3 strongestPos = Vector3.zero;
+            Quaternion strongestRot = Quaternion.identity;
+            bool foundSignal = false;
+
+            for (int i = m_ActiveEvents.Count - 1; i >= 0; --i)
+            {
+                ImpulseEvent e = m_ActiveEvents[i];
+                // Prune invalid or expired events
+                if (e == null || e.Expired)
+                {
+                    m_ActiveEvents.RemoveAt(i);
+                    if (e != null)
+                    {
+                        // Recycle it
+                        m_ExpiredEvents ??= new List<ImpulseEvent>();
+                        e.Clear();
+                        m_ExpiredEvents.Add(e);
+                    }
+                }
+                else if ((e.m_Channel & channelMask) != 0)
+                {
+                    if (e.GetDecayedSignal(
+                        listenerLocation, distance2D,
+                        out Vector3 pos0, out Quaternion rot0
+                    ))
+                    {
+                        float posMagnitude = pos0.sqrMagnitude;
+                        if (posMagnitude > strongestPosMagnitude)
+                        {
+                            strongestPosMagnitude = posMagnitude;
+                            strongestPos = pos0;
+                            strongestRot = rot0;
+                        }
+
+                        foundSignal = true;
+                    }
+                }
+            }
+
+            pos = strongestPos;
+            rot = strongestRot;
+            return foundSignal;
+        }
+        
         /// <summary>Set this to ignore time scaling so impulses can progress while the game is paused</summary>
         public bool IgnoreTimeScale;
 
